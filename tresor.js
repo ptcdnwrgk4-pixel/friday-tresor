@@ -776,6 +776,11 @@
   async function eintreten() {
     const b = box();
     if (!b) return;
+    // In einem fremden Rahmen gar nicht erst anfangen. Die Regel dafuer
+    // (frame-ancestors) gilt nur als Kopfzeile, und GitHub Pages setzt
+    // keine — also haelt der Code sie selbst. Ein Tresor, der sich in einer
+    // fremden Seite oeffnen laesst, oeffnet sich unter fremder Aufsicht.
+    if (window.top !== window.self) return tuerZu("Der Tresor laeuft nicht in einem fremden Rahmen.");
     if (!API) return tuerZu("Diese Seite kennt Fridays Adresse nicht.");
     const treffer = /(?:^|[#&])t=([A-Za-z0-9_-]+)/.exec(location.hash || "");
     if (!treffer) return tuerZu("Über die HUD öffnen.");

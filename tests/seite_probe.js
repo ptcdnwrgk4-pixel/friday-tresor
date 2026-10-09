@@ -43,6 +43,12 @@ sage("kein_speicher", !/localStorage|sessionStorage|indexedDB|document\.cookie/.
 sage("kein_eval", !/\beval\s*\(|new\s+Function\s*\(/.test(js));
 // Das Ticket darf nicht in der Adresszeile stehenbleiben.
 sage("ticket_wird_entfernt", /history\.replaceState/.test(js));
+// Kein fremder Rahmen. frame-ancestors waere die Regel dafuer, gilt aber nur
+// als Kopfzeile — GitHub Pages setzt keine. Also haelt der Code sie selbst,
+// und dieser Waechter haelt den Code.
+sage("kein_fremder_rahmen", /window\.top\s*!==\s*window\.self/.test(js));
+sage("frame_ancestors_nicht_vorgetaeuscht", !/frame-ancestors/.test(
+  html.replace(/<!--[\s\S]*?-->/g, "")));
 // Kein eigenes Anmeldefeld: ein Weg, nicht zwei (Spec Runde 3 § 4).
 sage("keine_zweite_anmeldung", !/type=["']password["']/.test(html));
 

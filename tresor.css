@@ -1,0 +1,81 @@
+/* Der Tresor steht für sich. Keine Schrift von außen, kein Framework: Was
+   die CSP verbietet, soll das Stylesheet gar nicht erst wollen. Die Farben
+   sind die der HUD, damit der Übergang keiner ist. */
+:root{
+  --grund:#223052; --grund-oben:#2f3d66; --grund-unten:#182238;
+  --flaeche:rgba(51,64,101,.85); --flaeche2:rgba(68,84,128,.85);
+  --linie:rgba(255,255,255,.10);
+  --akzent:#2ee6d0; --akzent-hell:#8ff5e9; --akzent-glas:rgba(46,230,208,.16);
+  --rot:#ef6f7b; --gut:#7fc9a0;
+  --text:#f1f3f8; --neben:#b3bfd8; --leise:#a2aecb; --auf-akzent:#14202a;
+  --ui:-apple-system,system-ui,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --grund:#f3eee2; --grund-oben:#f7f3ea; --grund-unten:#ece5d6;
+    --flaeche:#e9e2d2; --flaeche2:#e1d8c4; --linie:rgba(0,0,0,.08);
+    --akzent:#b8862a; --akzent-hell:#8a6318; --akzent-glas:rgba(184,134,42,.12);
+    --rot:#c8404e; --gut:#3f9a6a;
+    --text:#1f1b14; --neben:#5f584a; --leise:#6b6354; --auf-akzent:#f3eee2;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:linear-gradient(170deg,var(--grund-oben) 0%,var(--grund) 45%,var(--grund-unten) 100%);
+  color:var(--text);font-family:var(--ui);-webkit-text-size-adjust:100%;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+}
+main{max-width:34rem;margin:0 auto}
+.augenbraue{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--leise);margin:.4rem 0 .8rem}
+.fuss{color:var(--leise);font-size:.78rem;line-height:1.5;margin:1.4rem 0 0}
+
+/* --- Karten und Zeilen ------------------------------------------------- */
+.karte{background:var(--flaeche);border:1px solid var(--linie);border-radius:14px;
+  padding:14px 16px;margin:0 0 12px}
+.art{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  font-weight:600;margin:0 0 .6rem}
+.zeile{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:.5rem 0;border-top:1px solid var(--linie)}
+.zeile:first-child{border-top:0}
+.liste .zeile:first-child{border-top:1px solid var(--linie)}
+.l{display:flex;flex-direction:column;min-width:0;flex:1}
+.l small,.zeile small{display:block;color:var(--leise);font-size:.74rem;margin-top:.15rem}
+.w{color:var(--leise);flex:none}
+.satz{margin:.2rem 0 .7rem;line-height:1.5}
+.wortlaut{font-family:var(--mono);font-size:.8rem;word-break:break-all;
+  color:var(--neben);line-height:1.5}
+.quelle{color:var(--leise);font-size:.74rem}
+.leer{color:var(--leise);font-size:.82rem;line-height:1.5;margin:.6rem 0 0;min-height:1.1em}
+.leer.fehler{color:var(--rot)}
+
+/* --- Eingaben und Knöpfe ---------------------------------------------- */
+input,textarea{width:100%;background:var(--flaeche2);color:var(--text);
+  border:1px solid var(--linie);border-radius:10px;padding:.6rem .7rem;
+  font:inherit;margin:.3rem 0}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{
+  outline:2px solid var(--akzent);outline-offset:2px}
+textarea{min-height:5rem;resize:vertical}
+.knoepfe{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem}
+button,.knopf,.knopf-link{font:inherit;font-weight:600;cursor:pointer;
+  border:1px solid var(--linie);border-radius:10px;padding:.55rem .9rem;
+  background:var(--flaeche2);color:var(--text);text-decoration:none;display:inline-block}
+button.ja,.knopf-link{background:var(--akzent);border-color:transparent;color:var(--auf-akzent)}
+button.leise{background:transparent;color:var(--leise)}
+button.tresor-klein{padding:.3rem .6rem;font-size:.76rem;font-weight:500}
+button[disabled]{opacity:.5;cursor:default}
+
+/* --- Tresor-eigenes ---------------------------------------------------- */
+.tresor-meter{color:var(--leise);font-size:.76rem;margin:.2rem 0 .9rem}
+.tresor-papier{font-family:var(--mono);font-size:1rem;line-height:1.8;
+  letter-spacing:.06em;word-break:break-word;background:var(--akzent-glas);
+  border:1px solid var(--linie);border-radius:10px;padding:.8rem;margin:.6rem 0;
+  user-select:all}
+.tresor-balken{height:6px;border-radius:3px;background:var(--flaeche2);
+  overflow:hidden;margin:.7rem 0}
+.tresor-balken span{display:block;height:100%;width:0;background:var(--akzent);
+  transition:width .2s linear}
+img,video{max-width:100%;border-radius:10px;margin:.6rem 0;display:block}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}

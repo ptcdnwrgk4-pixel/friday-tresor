@@ -59,6 +59,19 @@ sage("adresse_nicht_im_code", !/https?:\/\/(?!schemas\.|www\.w3\.org)[a-z0-9.-]+
 const ziel = (/content=["'](https:\/\/[^"']+)["']/.exec(html) || [])[1] || "";
 sage("csp_erlaubt_nur_dieses_ziel", ziel && new RegExp("connect-src\\s+" + ziel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*;").test(html));
 
+// --- Der Zähler meldet, er sperrt nicht ------------------------------------
+// Die Seite meldet jeden Versuch, der nicht aufging (Migration 041). Zwei
+// Zusagen stehen dahinter, und beide gehören hierher: Sie meldet ALLE drei
+// Wege — sonst zählte der Server nur die Hälfte und meldete nie —, und sie
+// hält dabei nichts an.
+for (const art of ["codewort", "geraet", "papier"]) {
+  sage("meldet_" + art, new RegExp('fehlversuch\\("' + art + '"\\)').test(js));
+}
+// Kein await: Eine Meldung, die klemmt, darf den nächsten Versuch nicht
+// aufhalten — und ein Fehler beim Melden ist kein Fehler beim Öffnen.
+const melder = (js.split("function fehlversuch(art)")[1] || "").split("\n}")[0];
+sage("meldung_haelt_nichts_auf", /\.catch\(/.test(melder) && !/await\s+fehlversuch\(/.test(js));
+
 // --- Die Haustür -----------------------------------------------------------
 sage("cname_gesetzt", /^[a-z0-9.-]+\.[a-z]{2,}$/.test(lies("CNAME").trim()));
 

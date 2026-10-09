@@ -63,6 +63,19 @@ muss die Seite von heute öffnen.** Ein Wächter, der mit derselben Annahme
 rechnet wie der Code, prüft nichts — deshalb stehen dort Zahlen von damals und
 keine, die der Code sich gerade selbst ausrechnet.
 
+## Der Zähler, der nichts sperrt
+
+Ein falsches Codewort merkt nur dieser Browser: Das Päckchen geht auf oder es
+geht nicht auf, der Server sieht das Codewort nie. Ohne eine Meldung von hier
+wüsste niemand, wenn es jemand oft versucht — deshalb meldet die Seite jeden
+Versuch, der nicht aufging, als blosse Zahl (`codewort`, `geraet`, `papier`).
+
+**Gesperrt wird nichts.** Wer wirklich angreift, hat das Päckchen kopiert und
+probiert offline, wo keine Sperre gilt; eine Sperre träfe nur den Besitzer.
+Die Bremse bleibt, was sie ist: 600 000 Runden je Versuch und die
+Gerätebindung. Ab fünf Versuchen am Tag meldet sich Friday **einmal** aufs
+Handy — ein Hinweis, keine Tür, die zufällt.
+
 ## Der Eintritt
 
 Diese Seite hat **kein eigenes Anmeldefeld**: ein Weg, nicht zwei. Fridays

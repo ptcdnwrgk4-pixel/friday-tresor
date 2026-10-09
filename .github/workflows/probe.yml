@@ -1,0 +1,21 @@
+# Bei jedem Pull Request und auf main. Was hier rot wird, kommt nicht hinein:
+# Ein Tresor, der sich nicht mehr öffnen lässt, ist nicht reparierbar.
+name: probe
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Krypto — feste Vektoren aus Runde 1 und 2
+        run: node tests/tresor_probe.js
+      - name: Die Seite — nichts von außen, nichts gespeichert
+        run: node tests/seite_probe.js

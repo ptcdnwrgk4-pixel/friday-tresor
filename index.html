@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Friday · Tresor</title>
+
+<!-- Die Grenze dieser Seite, als Regel des Browsers und nicht als Versprechen
+     im Text: kein Skript von außen, kein Inline, und reden darf sie nur mit
+     Fridays API. Wer diese Zeile ändert, ändert den Tresor — darum liegt sie
+     in einem Repo, das Friday nicht schreiben kann. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'self';
+  img-src 'self' blob:;
+  media-src blob:;
+  connect-src https://friday.kosmyra.de;
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none'">
+
+<!-- Wo das Regal steht. Das Einzige, was diesen Code an einen Betrieb
+     bindet — eine Zeile, kein Eingriff (Spec Mandant § 2). -->
+<meta name="friday-api" content="https://friday.kosmyra.de">
+
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#223052">
+<link rel="stylesheet" href="tresor.css">
+</head>
+<body>
+  <main>
+    <div class="augenbraue">Tresor</div>
+    <div id="tresor"><p class="leer">Wird geladen …</p></div>
+    <p class="fuss">Alles wird auf diesem Gerät ver- und entschlüsselt.
+      Friday bewahrt nur Chiffre auf und liest nie mit.</p>
+  </main>
+  <script src="tresor.js"></script>
+</body>
+</html>

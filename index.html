@@ -17,8 +17,11 @@
   media-src blob:;
   connect-src https://friday.kosmyra.de;
   base-uri 'none';
-  form-action 'none';
-  frame-ancestors 'none'">
+  form-action 'none'">
+<!-- frame-ancestors steht bewusst NICHT oben: Als <meta> ignoriert der
+     Browser die Regel, und GitHub Pages setzt keine Kopfzeilen. Statt eines
+     Versprechens, das niemand durchsetzt, weigert sich tresor.js, in einem
+     fremden Rahmen zu laufen. -->
 
 <!-- Wo das Regal steht. Das Einzige, was diesen Code an einen Betrieb
      bindet — eine Zeile, kein Eingriff (Spec Mandant § 2). -->

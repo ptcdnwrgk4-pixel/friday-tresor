@@ -276,6 +276,19 @@
     return d;
   }
 
+  // Ein Versuch, der nicht aufging — gemeldet, nicht gezaehlt: Zaehlen kann
+  // nur der Server, erfahren kann er es nur hier. Das Codewort wird in
+  // dieser Datei geprueft; ohne diese Meldung merkte niemand, wenn es jemand
+  // oft versucht (Migration 041).
+  //
+  // GESPERRT WIRD NICHTS. Wer wirklich angreift, hat das Paeckchen kopiert
+  // und probiert offline. Die Meldung ist ein Hinweis fuer Max, keine Tuer,
+  // die zufaellt — und sie darf nichts aufhalten: Klemmt sie, klemmt sie
+  // still, und der naechste Versuch geht trotzdem.
+  function fehlversuch(art) {
+    api("/api/tresor/fehlversuch", { method: "POST", json: { art } }).catch(() => {});
+  }
+
   function sperren() {
     if (tmk) tmk.fill(0);
     tmk = null;
@@ -404,7 +417,7 @@
         tmk = await auspacken(kek, unb64(zettel.paeckchen_codewort));
         bindung = null;
         offenZeigen(); wach();
-      } catch { hinweis("Falsches Codewort.", true); }
+      } catch { fehlversuch("codewort"); hinweis("Falsches Codewort.", true); }
     };
     const aufGeraet = async () => {
       const cw = document.getElementById("tr-cw").value;
@@ -428,6 +441,7 @@
         offenZeigen(); wach();
       } catch {
         antwort.chip.fill(0);
+        fehlversuch("geraet");
         hinweis(zurueck
           ? `Falsches Codewort. Es wurde ${wann(zettel.codewort_geaendert_at)} auf „${zettel.codewort_geaendert_auf}" geändert – hier gilt noch das alte; danach übernimmt dieses Gerät das neue.`
           : "Falsches Codewort.", true);
@@ -485,7 +499,13 @@
           await bindungenAufheben(a);
           offenZeigen(); wach();
         }
-      } catch (e) { hinweis(e.message === "unauthorized" ? e.message : (e.message || "Der Papierschlüssel passt nicht."), true); }
+      } catch (e) {
+        // Nur der Papierschluessel selbst zaehlt als Fehlversuch — nicht ein
+        // Serverfehler danach, sonst meldete der Zaehler Stoerungen statt
+        // Versuchen.
+        if (e.message !== "unauthorized" && !tmk) fehlversuch("papier");
+        hinweis(e.message === "unauthorized" ? e.message : (e.message || "Der Papierschlüssel passt nicht."), true);
+      }
     });
   }
   async function codewortPaeckchen(codewort, extra = {}) {

@@ -76,6 +76,19 @@ Die Bremse bleibt, was sie ist: 600 000 Runden je Versuch und die
 Gerätebindung. Ab fünf Versuchen am Tag meldet sich Friday **einmal** aufs
 Handy — ein Hinweis, keine Tür, die zufällt.
 
+## Logins für Friday im Browser
+
+Seit dem 20.11.2026 kann ein Eintrag ein **Login** sein: Seite (genau ein
+Ursprung, z. B. `https://shop.example`), Benutzername, Passwort — verschlüsselt
+wie jeder Eintrag, auch der Ursprung. Will eine Seite in Fridays Browser eine
+Anmeldung, öffnet die Karte in der HUD diese Seite mit Ticket und Karte im
+Fragment. Die Seite fragt mit ihrer Sitzung, welcher Ursprung gefragt ist, und
+bietet **nur Logins mit genau diesem Ursprung** an (`loginPasst`;
+`shop-example.evil` ist nicht `shop.example`). Ist der Tresor an ein Gerät
+gebunden, gibt er Logins nur heraus, wenn er mit Face ID geöffnet wurde. Der
+gewählte Login geht an genau diese Karte; Fridays Server füllt ihn nur in eine
+Seite dieses Ursprungs und behält ihn nicht.
+
 ## Der Eintritt
 
 Diese Seite hat **kein eigenes Anmeldefeld**: ein Weg, nicht zwei. Fridays

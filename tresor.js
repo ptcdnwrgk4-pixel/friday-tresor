@@ -185,9 +185,30 @@
     return JSON.parse(td.decode(await stueckEntschluesseln(key, 0, chiffre)));
   }
 
+  // ------------------------------------------------------------ Logins (Browser Schritt 3b)
+  // Ein Login gehört zu genau EINEM Ursprung — Schema, Host, Port, wie
+  // location.origin. „shop.example" ist nicht „shop-example.evil" und nicht
+  // „shop.example.evil". Ohne Schema gilt https.
+  function ursprungVon(text) {
+    let t = String(text || "").trim();
+    if (!t) return null;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(t)) t = "https://" + t;
+    try {
+      const u = new URL(t);
+      if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+      if (!u.hostname || u.username || u.password) return null;
+      return u.origin;
+    } catch { return null; }
+  }
+  // Passt dieser Eintrag zu dieser Anfrage? Nur bei GENAU gleichem Ursprung.
+  function loginPasst(kopf, anfrage) {
+    return !!(kopf && anfrage && kopf.art === "login" && typeof kopf.ursprung === "string"
+              && kopf.ursprung === anfrage.ursprung && ursprungVon(kopf.ursprung) === kopf.ursprung);
+  }
+
   const intern = { concat, b64, unb64, nonce, base32, unbase32, papierErzeugen, papierLesen,
     kekAusCodewort, kekAusPapier, codewortBits, kekAusGeraet, einpacken, auspacken, eintragSchluessel,
-    stueckVerschluesseln, stueckEntschluesseln, kopfPacken, kopfLesen, KDF, RUNDEN, STUECK };
+    stueckVerschluesseln, stueckEntschluesseln, kopfPacken, kopfLesen, ursprungVon, loginPasst, KDF, RUNDEN, STUECK };
 
   // Ab hier nur Browser.
   if (typeof document === "undefined") {
@@ -204,6 +225,8 @@
   let beschaeftigt = false;
   let bindung = null;             // das Gerät, mit dem gerade geöffnet wurde (Runde 2)
   let neuesPrfSalz = null;        // bis der Server eines kennt
+  let anfrage = null;             // Browser Schritt 3b: Friday bittet um einen Login
+  let anfrageKarte = "";          // die Kennung der Anmeldekarte, aus dem Fragment
 
   // ------------------------------------------------------------ WebAuthn (Runde 2)
   // Der Server ist an der Zeremonie nicht beteiligt: Er prüft keine
@@ -401,7 +424,7 @@
       if (mitCodewort) lage += ` Bis ${wann(zettel.codewort_bis)} geht es auch mit dem Codewort allein (Gerät hinzufügen).`;
       lage += "</div>";
     }
-    box().innerHTML = karte(`
+    box().innerHTML = anfrageHinweis() + karte(`
       <div class="art"><span>Geschlossen</span></div>
       <div class="satz">Codewort</div>
       <input id="tr-cw" type="password" autocomplete="current-password" placeholder="Codewort">
@@ -518,12 +541,15 @@
   async function offenZeigen() {
     const b = box();
     const zeilen = [];
+    const koepfe = {};
     for (const e of eintraege) {
       let kopf;
       try { kopf = await kopfLesen(tmk, e.id, unb64(e.kopf)); } catch { kopf = { name: "(nicht lesbar)", typ: "", groesse: 0 }; }
-      zeilen.push(`<div class="zeile knopf" data-id="${esc(e.id)}"><span class="l">${esc(kopf.name)}<small>${esc(kopf.art === "text" ? "Text" : (kopf.typ || "Datei"))} · ${mb(kopf.groesse)}</small></span><span class="w">›</span></div>`);
+      koepfe[e.id] = kopf;
+      const art = kopf.art === "login" ? `Login · ${kopf.ursprung || "?"}` : kopf.art === "text" ? "Text" : (kopf.typ || "Datei");
+      zeilen.push(`<div class="zeile knopf" data-id="${esc(e.id)}"><span class="l">${esc(kopf.name)}<small>${esc(art)}${kopf.art === "login" ? "" : " · " + mb(kopf.groesse)}</small></span><span class="w">›</span></div>`);
     }
-    b.innerHTML = karte(`
+    b.innerHTML = anfrageKarteHtml(koepfe) + karte(`
       <div class="art"><span>Offen</span><button class="leise tresor-klein" id="tr-zu">Schließen</button></div>
       <div class="liste" id="tr-liste">${zeilen.join("") || '<p class="leer">Noch leer.</p>'}</div>`) + meter() + karte(`
       <div class="art"><span>Ablegen</span></div>
@@ -533,10 +559,20 @@
       <div class="tresor-balken" id="tr-balken" hidden><span></span></div>
       <div class="knoepfe"><button class="ja" id="tr-ablegen">In den Tresor</button></div>
       <p class="leer" id="tresor-hinweis"></p>
-      <div id="tr-ansicht"></div>`) + geraeteKarte();
+      <div id="tr-ansicht"></div>`) + karte(`
+      <div class="art"><span>Login ablegen</span></div>
+      <div class="quelle">Für Friday im Browser: Will eine Seite eine Anmeldung, wählst du hier den Login, und er geht nur an genau diese Seite. Friday selbst sieht ihn nie.</div>
+      <input id="tr-login-seite" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Seite, z. B. shop.example">
+      <input id="tr-login-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Benutzername oder E-Mail">
+      <input id="tr-login-pw" type="password" autocomplete="new-password" placeholder="Passwort">
+      <div class="knoepfe"><button class="ja" id="tr-login-ablegen">Login in den Tresor</button></div>`) + geraeteKarte();
     b.addEventListener("pointerdown", wach); b.addEventListener("keydown", wach);
     document.getElementById("tr-zu").addEventListener("click", () => { sperren(); });
     document.getElementById("tr-ablegen").addEventListener("click", ablegen);
+    document.getElementById("tr-login-ablegen").addEventListener("click", loginAblegen);
+    for (const k of b.querySelectorAll("[data-login-mit]")) k.addEventListener("click", () => mitLoginAnmelden(k.dataset.loginMit, koepfe[k.dataset.loginMit]));
+    const nein = document.getElementById("tr-anfrage-weg");
+    if (nein) nein.addEventListener("click", () => { anfrage = null; anfrageKarte = ""; offenZeigen(); });
     document.getElementById("tr-cw-wechsel").addEventListener("click", codewortWechseln);
     document.getElementById("tr-papier-neu").addEventListener("click", papierErneuernZeigen);
     const binden = document.getElementById("tr-binden");
@@ -677,6 +713,34 @@
     else if (text.trim()) { const bytes = te.encode(text); quelle = new Blob([bytes]); kopf = { art: "text", name: name || text.trim().slice(0, 40), typ: "text/plain", groesse: bytes.length }; }
     else return hinweis("Nichts zum Ablegen – Text eingeben oder Datei wählen.", true);
     if (quelle.size === 0) return hinweis("Die Datei ist leer.", true);
+    if (await eintragAblegen(kopf, quelle)) {
+      document.getElementById("tr-name").value = "";
+      document.getElementById("tr-text").value = "";
+      document.getElementById("tr-datei").value = "";
+      await zeigen();
+    }
+  }
+
+  // Ein Login ist ein Eintrag wie jeder andere: Kopf (Name, Art, Ursprung)
+  // und ein Stück mit Benutzername und Passwort, beides verschlüsselt. Der
+  // Server sieht davon nichts, auch nicht, für welche Seite er ist.
+  async function loginAblegen() {
+    if (!tmk || beschaeftigt) return;
+    const ursprung = ursprungVon(document.getElementById("tr-login-seite").value);
+    const benutzer = document.getElementById("tr-login-name").value.trim();
+    const passwort = document.getElementById("tr-login-pw").value;
+    if (!ursprung) return hinweis("Welche Seite? Eine Adresse wie shop.example.", true);
+    if (!passwort) return hinweis("Ohne Passwort kein Login.", true);
+    const bytes = te.encode(JSON.stringify({ benutzer, passwort }));
+    const kopf = { art: "login", name: `${new URL(ursprung).hostname}${benutzer ? " · " + benutzer : ""}`, ursprung,
+                   typ: "application/json", groesse: bytes.length };
+    if (await eintragAblegen(kopf, new Blob([bytes]))) {
+      for (const id of ["tr-login-seite", "tr-login-name", "tr-login-pw"]) document.getElementById(id).value = "";
+      await zeigen();
+    }
+  }
+
+  async function eintragAblegen(kopf, quelle) {
     const stuecke = Math.ceil(quelle.size / STUECK);
     beschaeftigt = true; balken(0); hinweis("Wird verschlüsselt …");
     try {
@@ -695,15 +759,76 @@
         balken((n + 1) / stuecke);
       }
       await api(`/api/tresor/eintraege/${encodeURIComponent(kennung)}/fertig`, { method: "POST" });
-      document.getElementById("tr-name").value = "";
-      document.getElementById("tr-text").value = "";
-      document.getElementById("tr-datei").value = "";
       beschaeftigt = false; balken(null);
-      await zeigen();
+      return true;
     } catch (e) {
       beschaeftigt = false; balken(null);
       hinweis("Nicht abgelegt – " + e.message, true);
+      return false;
     }
+  }
+
+  async function eintragLesen(e) {
+    const key = await eintragSchluessel(tmk, e.id, "inhalt");
+    const teile = [];
+    for (let n = 0; n < e.stuecke; n++) {
+      const chiffre = await api(`/api/tresor/eintraege/${encodeURIComponent(e.id)}/stuecke/${n}`);
+      teile.push(await stueckEntschluesseln(key, n, chiffre));
+    }
+    return concat(...teile);
+  }
+
+  // --- Die Anfrage: Friday bittet um eine Anmeldung (Browser Schritt 3b) --
+  // Was die Karte will, fragt diese Seite mit IHRER Sitzung beim Server ab;
+  // angeboten werden nur Logins mit GENAU diesem Ursprung. Der gewählte wird
+  // hier entschlüsselt und geht an genau diese Karte — der Server füllt ihn
+  // nur in eine Seite dieses Ursprungs und behält ihn nicht.
+  function anfrageHinweis() {
+    if (!anfrage) return "";
+    return karte(`<div class="art"><span>Anmeldung erbeten</span></div>
+      <div class="satz">Friday bittet um einen Login für <b>${esc(anfrage.ursprung)}</b>.</div>
+      <div class="quelle">Öffne den Tresor, dann wählst du ihn aus.</div>`);
+  }
+  function anfrageKarteHtml(koepfe) {
+    if (!anfrage) return "";
+    const passend = Object.entries(koepfe).filter(([, k]) => loginPasst(k, anfrage));
+    const geraete = (zettel && zettel.geraete) || [];
+    const ohneGeraet = geraete.length > 0 && !bindung;
+    const knoepfe = ohneGeraet ? ""
+      : passend.map(([id, k]) => `<button class="ja" data-login-mit="${esc(id)}">Anmelden als ${esc(k.name)}</button>`).join("");
+    const lage = ohneGeraet
+      ? '<div class="quelle fehler">Dieser Tresor ist an ein Gerät gebunden. Logins gibt er nur heraus, wenn er mit Face ID geöffnet wurde.</div>'
+      : passend.length ? ""
+      : `<div class="quelle">Kein Login für genau diese Seite im Tresor. Leg ihn unten ab oder tippe ihn auf der Karte in der HUD.</div>`;
+    return karte(`<div class="art"><span>Anmeldung erbeten</span></div>
+      <div class="satz">Friday bittet um einen Login für <b>${esc(anfrage.ursprung)}</b>.</div>
+      <div class="quelle">auf ${esc(String(anfrage.adresse || "").slice(0, 120))}</div>
+      ${anfrage.ziel_ursprung && anfrage.ziel_ursprung !== anfrage.ursprung ? `<div class="quelle fehler">Das Formular sendet an ${esc(anfrage.ziel_ursprung)}.</div>` : ""}
+      ${lage}
+      <div class="knoepfe">${knoepfe}<button class="leise" id="tr-anfrage-weg">Nicht jetzt</button></div>
+      <p class="leer" id="tr-anfrage-ergebnis"></p>`);
+  }
+  async function mitLoginAnmelden(kennung, kopf) {
+    const e = eintraege.find((x) => x.id === kennung);
+    const aus = document.getElementById("tr-anfrage-ergebnis");
+    if (!tmk || !e || !anfrage || !loginPasst(kopf, anfrage) || beschaeftigt) return;
+    if ((zettel.geraete || []).length && !bindung) return;
+    beschaeftigt = true;
+    for (const k of document.querySelectorAll("[data-login-mit]")) k.disabled = true;
+    if (aus) { aus.className = "leer"; aus.textContent = "Wird angemeldet …"; }
+    try {
+      const login = JSON.parse(td.decode(await eintragLesen(e)));
+      const d = await api(`/api/tresor/browser/${encodeURIComponent(anfrageKarte)}/anmelden`, { method: "POST",
+        json: { ursprung: kopf.ursprung, benutzer: login.benutzer || "", passwort: login.passwort || "" } });
+      anfrage = null; anfrageKarte = "";
+      if (aus) aus.textContent = d.angemeldet ? `Angemeldet bei ${kopf.ursprung}.${d.passwortfeld_noch_da ? " Das Passwortfeld ist noch da – in der HUD nachsehen." : ""} Zurück zur HUD.`
+        : "Nicht angemeldet – " + (d.blockiert || "blockiert");
+    } catch (err) {
+      if (aus) { aus.className = "leer fehler"; aus.textContent = "Nicht angemeldet – " + err.message; }
+      for (const k of document.querySelectorAll("[data-login-mit]")) k.disabled = false;
+    }
+    beschaeftigt = false;
+    wach();
   }
   // 18 Byte Zufall als Base64-URL: 24 Zeichen aus [A-Za-z0-9_-] — dasselbe
   // Muster, das der Server prüft (tresor.py _ID_RE).
@@ -727,7 +852,17 @@
       }
       const ansicht = document.getElementById("tr-ansicht");
       for (const u of ansicht.querySelectorAll("a[data-blob]")) URL.revokeObjectURL(u.href);
-      if (kopf.art === "text") {
+      if (kopf.art === "login") {
+        // Das Passwort steht nicht im HTML, bis du es sehen willst.
+        const login = JSON.parse(td.decode(concat(...teile)));
+        ansicht.innerHTML = karte(`<div class="art"><span>${esc(kopf.name)}</span><button class="leise tresor-klein" data-weg="${esc(e.id)}">Löschen</button></div>
+          <div class="quelle">Login für ${esc(kopf.ursprung)}</div><div class="satz">${esc(login.benutzer || "(ohne Benutzername)")}</div>
+          <div class="wortlaut" id="tr-pw">••••••••</div><div class="knoepfe"><button class="leise" id="tr-pw-zeigen">Passwort zeigen</button></div>`);
+        document.getElementById("tr-pw-zeigen").addEventListener("click", () => {
+          const f = document.getElementById("tr-pw");
+          f.textContent = f.textContent === "••••••••" ? login.passwort : "••••••••";
+        });
+      } else if (kopf.art === "text") {
         ansicht.innerHTML = karte(`<div class="art"><span>${esc(kopf.name)}</span><button class="leise tresor-klein" data-weg="${esc(e.id)}">Löschen</button></div><div class="wortlaut">${esc(td.decode(concat(...teile)))}</div>`);
       } else {
         const blob = new Blob(teile, { type: kopf.typ || "application/octet-stream" });
@@ -804,6 +939,9 @@
     if (!API) return tuerZu("Diese Seite kennt Fridays Adresse nicht.");
     const treffer = /(?:^|[#&])t=([A-Za-z0-9_-]+)/.exec(location.hash || "");
     if (!treffer) return tuerZu("Über die HUD öffnen.");
+    // Browser Schritt 3b: Kommt die Seite von einer Anmeldekarte, steht deren
+    // Kennung mit im Fragment. Sie ist kein Geheimnis, nur ein Verweis.
+    const login = /(?:^|[#&])login=([A-Za-z0-9_-]{8,64})(?:&|$)/.exec(location.hash || "");
     // Sofort aus der Adresszeile — bevor irgendetwas anderes passiert.
     history.replaceState(null, "", location.pathname + location.search);
     b.innerHTML = '<p class="leer">Tresor wird geöffnet …</p>';
@@ -811,6 +949,12 @@
       const d = await api("/api/tresor/sitzung", { method: "POST", json: { ticket: treffer[1] } });
       sitzung = d.sitzung;
       if (!sitzung) throw new Error("Der Server hat keine Sitzung ausgestellt.");
+      if (login) {
+        try {
+          const a = await api(`/api/tresor/browser/${encodeURIComponent(login[1])}`);
+          if (ursprungVon(a.ursprung) === a.ursprung) { anfrage = a; anfrageKarte = login[1]; }
+        } catch { /* die Karte ist weg oder abgelaufen: dann eben der Tresor, ohne Anfrage */ }
+      }
       await zeigen();
     } catch (e) {
       tuerZu(e.message === "unauthorized"

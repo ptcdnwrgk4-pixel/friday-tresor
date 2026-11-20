@@ -72,6 +72,15 @@ for (const art of ["codewort", "geraet", "papier"]) {
 const melder = (js.split("function fehlversuch(art)")[1] || "").split("\n}")[0];
 sage("meldung_haelt_nichts_auf", /\.catch\(/.test(melder) && !/await\s+fehlversuch\(/.test(js));
 
+// --- Logins für Friday im Browser (Schritt 3b) -----------------------------
+// Angeboten wird ein Login nur über loginPasst (genau derselbe Ursprung), und
+// mit gebundenem Gerät nur, wenn der Tresor mit Face ID geöffnet wurde.
+sage("login_nur_ueber_loginPasst", /passend\s*=\s*Object\.entries\(koepfe\)\.filter\(\(\[, k\]\)\s*=>\s*loginPasst\(k, anfrage\)\)/.test(js)
+  && /!loginPasst\(kopf, anfrage\)/.test(js));
+sage("login_nur_mit_face_id_wenn_gebunden", /geraete \|\| \[\]\)\.length && !bindung\) return;/.test(js));
+sage("login_nur_an_die_karte", /\/api\/tresor\/browser\/\$\{encodeURIComponent\(anfrageKarte\)\}\/anmelden/.test(js));
+sage("kein_passwort_im_log", !/console\.(log|info|warn|error)/.test(js));
+
 // --- Die Haustür -----------------------------------------------------------
 sage("cname_gesetzt", /^[a-z0-9.-]+\.[a-z]{2,}$/.test(lies("CNAME").trim()));
 

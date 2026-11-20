@@ -139,6 +139,23 @@ async function main() {
 
   await alteTresoreGehenAuf(b);
 
+  // Browser Schritt 3b: Ein Login gehört zu genau einem Ursprung.
+  const u = intern.ursprungVon;
+  b.ursprung_ohne_schema_ist_https = u("shop.example/login?x=1") === "https://shop.example";
+  b.ursprung_klein_und_ohne_standardport = u("HTTPS://Shop.Example:443/a") === "https://shop.example";
+  b.ursprung_behaelt_anderen_port = u("http://shop.example:8080/") === "http://shop.example:8080";
+  b.ursprung_port_ohne_schema = u("shop.example:8443/login") === "https://shop.example:8443"
+    && u("localhost:8080") === "https://localhost:8080";
+  b.ursprung_nur_http = u("javascript:alert(1)") === null && u("file:///etc/passwd") === null && u("") === null;
+  b.ursprung_ohne_zugangsdaten = u("https://max:pw@shop.example/") === null;
+  const anfrage = { ursprung: "https://shop.example" };
+  const login = (ursprung) => ({ art: "login", ursprung });
+  b.login_passt_genau = intern.loginPasst(login("https://shop.example"), anfrage);
+  b.login_nicht_fuer_aehnliche_seiten = ["https://shop-example.evil", "https://shop.example.evil", "http://shop.example",
+    "https://shop.example:8443", "https://sub.shop.example", "https://shop.example/"]
+    .every((x) => !intern.loginPasst(login(x), anfrage));
+  b.login_nur_art_login = !intern.loginPasst({ art: "text", ursprung: "https://shop.example" }, anfrage);
+
   // Die Parameter selbst. Alte Tresore tragen ihre Runden im Zettel und
   // gingen auch mit anderen Zahlen auf — ein stilles Herabsetzen träfe nur
   // NEUE Tresore, und genau das fiele sonst niemandem auf (Spec § 4).

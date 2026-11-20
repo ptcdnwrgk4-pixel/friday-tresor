@@ -144,6 +144,8 @@ async function main() {
   b.ursprung_ohne_schema_ist_https = u("shop.example/login?x=1") === "https://shop.example";
   b.ursprung_klein_und_ohne_standardport = u("HTTPS://Shop.Example:443/a") === "https://shop.example";
   b.ursprung_behaelt_anderen_port = u("http://shop.example:8080/") === "http://shop.example:8080";
+  b.ursprung_port_ohne_schema = u("shop.example:8443/login") === "https://shop.example:8443"
+    && u("localhost:8080") === "https://localhost:8080";
   b.ursprung_nur_http = u("javascript:alert(1)") === null && u("file:///etc/passwd") === null && u("") === null;
   b.ursprung_ohne_zugangsdaten = u("https://max:pw@shop.example/") === null;
   const anfrage = { ursprung: "https://shop.example" };

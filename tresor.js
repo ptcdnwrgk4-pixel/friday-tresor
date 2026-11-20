@@ -192,7 +192,10 @@
   function ursprungVon(text) {
     let t = String(text || "").trim();
     if (!t) return null;
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(t)) t = "https://" + t;
+    // Ein Schema ist „etwas:" gefolgt von „//" oder von etwas, das keine
+    // Ziffer ist (javascript:, data:). „shop.example:8443" ist ein Name mit
+    // Port, kein Schema (Codex an #4).
+    if (!/^[a-z][a-z0-9+.-]*:(?:\/\/|(?!\d))/i.test(t)) t = "https://" + t;
     try {
       const u = new URL(t);
       if (u.protocol !== "https:" && u.protocol !== "http:") return null;

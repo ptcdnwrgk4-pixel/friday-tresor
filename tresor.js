@@ -209,9 +209,28 @@
               && kopf.ursprung === anfrage.ursprung && ursprungVon(kopf.ursprung) === kopf.ursprung);
   }
 
+  // Zahlungskarten (Browser Schritt 3c): Nummer mit Prüfsumme (Luhn), Ablauf
+  // MM/JJ, Prüfziffer 3 oder 4 Ziffern. Gibt die Karte zurück oder null.
+  function karteLesen(nummer, ablauf, pruefziffer) {
+    const ziffern = String(nummer || "").replace(/[\s-]/g, "");
+    if (!/^\d{12,19}$/.test(ziffern)) return null;
+    let summe = 0;
+    for (let i = 0; i < ziffern.length; i++) {
+      let n = Number(ziffern[ziffern.length - 1 - i]) * (i % 2 ? 2 : 1);
+      summe += n > 9 ? n - 9 : n;
+    }
+    if (summe % 10) return null;
+    const m = /^\s*(\d{1,2})\s*\/\s*(\d{2}|\d{4})\s*$/.exec(String(ablauf || ""));
+    if (!m || Number(m[1]) < 1 || Number(m[1]) > 12) return null;
+    const pz = String(pruefziffer || "");
+    if (pz && !/^\d{3,4}$/.test(pz)) return null;
+    return { nummer: ziffern, ablauf: `${m[1].padStart(2, "0")}/${m[2].slice(-2)}`, pruefziffer: pz };
+  }
+
   const intern = { concat, b64, unb64, nonce, base32, unbase32, papierErzeugen, papierLesen,
     kekAusCodewort, kekAusPapier, codewortBits, kekAusGeraet, einpacken, auspacken, eintragSchluessel,
-    stueckVerschluesseln, stueckEntschluesseln, kopfPacken, kopfLesen, ursprungVon, loginPasst, KDF, RUNDEN, STUECK };
+    stueckVerschluesseln, stueckEntschluesseln, kopfPacken, kopfLesen, ursprungVon, loginPasst, karteLesen,
+    KDF, RUNDEN, STUECK };
 
   // Ab hier nur Browser.
   if (typeof document === "undefined") {
@@ -549,8 +568,10 @@
       let kopf;
       try { kopf = await kopfLesen(tmk, e.id, unb64(e.kopf)); } catch { kopf = { name: "(nicht lesbar)", typ: "", groesse: 0 }; }
       koepfe[e.id] = kopf;
-      const art = kopf.art === "login" ? `Login · ${kopf.ursprung || "?"}` : kopf.art === "text" ? "Text" : (kopf.typ || "Datei");
-      zeilen.push(`<div class="zeile knopf" data-id="${esc(e.id)}"><span class="l">${esc(kopf.name)}<small>${esc(art)}${kopf.art === "login" ? "" : " · " + mb(kopf.groesse)}</small></span><span class="w">›</span></div>`);
+      const art = kopf.art === "login" ? `Login · ${kopf.ursprung || "?"}` : kopf.art === "karte" ? `Zahlungskarte · •••• ${kopf.endung || ""}`
+        : kopf.art === "text" ? "Text" : (kopf.typ || "Datei");
+      const geheim = kopf.art === "login" || kopf.art === "karte";
+      zeilen.push(`<div class="zeile knopf" data-id="${esc(e.id)}"><span class="l">${esc(kopf.name)}<small>${esc(art)}${geheim ? "" : " · " + mb(kopf.groesse)}</small></span><span class="w">›</span></div>`);
     }
     b.innerHTML = anfrageKarteHtml(koepfe) + karte(`
       <div class="art"><span>Offen</span><button class="leise tresor-klein" id="tr-zu">Schließen</button></div>
@@ -568,12 +589,22 @@
       <input id="tr-login-seite" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Seite, z. B. shop.example">
       <input id="tr-login-name" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Benutzername oder E-Mail">
       <input id="tr-login-pw" type="password" autocomplete="new-password" placeholder="Passwort">
-      <div class="knoepfe"><button class="ja" id="tr-login-ablegen">Login in den Tresor</button></div>`) + geraeteKarte();
+      <div class="knoepfe"><button class="ja" id="tr-login-ablegen">Login in den Tresor</button></div>`) + karte(`
+      <div class="art"><span>Zahlungskarte ablegen</span></div>
+      <div class="quelle">Für Friday im Browser: Will eine Kasse eine Karte, wählst du sie hier, und der Browser füllt sie nur ein. Bestellt wird erst mit einer Kaufkarte und Face ID.</div>
+      <input id="tr-karte-name" autocomplete="off" placeholder="Name, z. B. Visa privat">
+      <input id="tr-karte-nummer" autocomplete="off" inputmode="numeric" placeholder="Kartennummer">
+      <input id="tr-karte-ablauf" autocomplete="off" inputmode="numeric" placeholder="Ablauf MM/JJ">
+      <input id="tr-karte-pz" type="password" autocomplete="off" inputmode="numeric" placeholder="Prüfziffer">
+      <input id="tr-karte-inhaber" autocomplete="off" placeholder="Name auf der Karte">
+      <div class="knoepfe"><button class="ja" id="tr-karte-ablegen">Karte in den Tresor</button></div>`) + geraeteKarte();
     b.addEventListener("pointerdown", wach); b.addEventListener("keydown", wach);
     document.getElementById("tr-zu").addEventListener("click", () => { sperren(); });
     document.getElementById("tr-ablegen").addEventListener("click", ablegen);
     document.getElementById("tr-login-ablegen").addEventListener("click", loginAblegen);
+    document.getElementById("tr-karte-ablegen").addEventListener("click", karteAblegen);
     for (const k of b.querySelectorAll("[data-login-mit]")) k.addEventListener("click", () => mitLoginAnmelden(k.dataset.loginMit, koepfe[k.dataset.loginMit]));
+    for (const k of b.querySelectorAll("[data-karte-mit]")) k.addEventListener("click", () => mitKarteFuellen(k.dataset.karteMit, koepfe[k.dataset.karteMit]));
     const nein = document.getElementById("tr-anfrage-weg");
     if (nein) nein.addEventListener("click", () => { anfrage = null; anfrageKarte = ""; offenZeigen(); });
     document.getElementById("tr-cw-wechsel").addEventListener("click", codewortWechseln);
@@ -743,6 +774,24 @@
     }
   }
 
+  // Eine Zahlungskarte: Nummer, Ablauf, Prüfziffer, Name — verschlüsselt wie
+  // jeder Eintrag. Im Kopf nur die letzten vier Ziffern, für die Liste.
+  async function karteAblegen() {
+    if (!tmk || beschaeftigt) return;
+    const wert = (id) => document.getElementById(id).value;
+    const k = karteLesen(wert("tr-karte-nummer"), wert("tr-karte-ablauf"), wert("tr-karte-pz"));
+    if (!k) return hinweis("Die Karte stimmt nicht: Nummer, Ablauf (MM/JJ) und Prüfziffer prüfen.", true);
+    const inhaber = wert("tr-karte-inhaber").trim();
+    const bytes = te.encode(JSON.stringify({ ...k, inhaber }));
+    const endung = k.nummer.slice(-4);
+    const kopf = { art: "karte", name: wert("tr-karte-name").trim() || `Karte •••• ${endung}`, endung,
+                   typ: "application/json", groesse: bytes.length };
+    if (await eintragAblegen(kopf, new Blob([bytes]))) {
+      for (const id of ["tr-karte-name", "tr-karte-nummer", "tr-karte-ablauf", "tr-karte-pz", "tr-karte-inhaber"]) document.getElementById(id).value = "";
+      await zeigen();
+    }
+  }
+
   async function eintragAblegen(kopf, quelle) {
     const stuecke = Math.ceil(quelle.size / STUECK);
     beschaeftigt = true; balken(0); hinweis("Wird verschlüsselt …");
@@ -788,12 +837,14 @@
   // nur in eine Seite dieses Ursprungs und behält ihn nicht.
   function anfrageHinweis() {
     if (!anfrage) return "";
-    return karte(`<div class="art"><span>Anmeldung erbeten</span></div>
-      <div class="satz">Friday bittet um einen Login für <b>${esc(anfrage.ursprung)}</b>.</div>
-      <div class="quelle">Öffne den Tresor, dann wählst du ihn aus.</div>`);
+    const was = anfrage.art === "zahlung" ? "eine Zahlungskarte" : "einen Login";
+    return karte(`<div class="art"><span>${anfrage.art === "zahlung" ? "Zahlungskarte erbeten" : "Anmeldung erbeten"}</span></div>
+      <div class="satz">Friday bittet um ${was} für <b>${esc(anfrage.ursprung)}</b>.</div>
+      <div class="quelle">Öffne den Tresor, dann wählst du aus.</div>`);
   }
   function anfrageKarteHtml(koepfe) {
     if (!anfrage) return "";
+    if (anfrage.art === "zahlung") return zahlungKarteHtml(koepfe);
     const passend = Object.entries(koepfe).filter(([, k]) => loginPasst(k, anfrage));
     const geraete = (zettel && zettel.geraete) || [];
     const ohneGeraet = geraete.length > 0 && !bindung;
@@ -810,6 +861,49 @@
       ${lage}
       <div class="knoepfe">${knoepfe}<button class="leise" id="tr-anfrage-weg">Nicht jetzt</button></div>
       <p class="leer" id="tr-anfrage-ergebnis"></p>`);
+  }
+  // Die Zahlungskarte (Browser Schritt 3c): angeboten werden alle Karten; sie
+  // geht an genau diese Kasse, und der Browser füllt sie nur ein.
+  function zahlungKarteHtml(koepfe) {
+    const karten = Object.entries(koepfe).filter(([, k]) => k && k.art === "karte");
+    const ohneGeraet = ((zettel && zettel.geraete) || []).length > 0 && !bindung;
+    const knoepfe = ohneGeraet ? ""
+      : karten.map(([id, k]) => `<button class="ja" data-karte-mit="${esc(id)}">${esc(k.name)} einfüllen</button>`).join("");
+    const lage = ohneGeraet
+      ? '<div class="quelle fehler">Dieser Tresor ist an ein Gerät gebunden. Karten gibt er nur heraus, wenn er mit Face ID geöffnet wurde.</div>'
+      : karten.length ? "" : '<div class="quelle">Noch keine Zahlungskarte im Tresor. Leg sie unten ab oder tippe sie auf der Karte in der HUD.</div>';
+    return karte(`<div class="art"><span>Zahlungskarte erbeten</span></div>
+      <div class="satz">Friday bittet um eine Zahlungskarte für <b>${esc(anfrage.ursprung)}</b>.</div>
+      <div class="quelle">auf ${esc(String(anfrage.adresse || "").slice(0, 120))}</div>
+      ${anfrage.ziel_ursprung && anfrage.ziel_ursprung !== anfrage.ursprung ? `<div class="quelle fehler">Die Kartenfelder liegen bei ${esc(anfrage.ziel_ursprung)}.</div>` : ""}
+      <div class="quelle">Der Browser füllt die Karte nur ein. Bestellt wird erst mit einer Kaufkarte und Face ID in der HUD.</div>
+      ${lage}
+      <div class="knoepfe">${knoepfe}<button class="leise" id="tr-anfrage-weg">Nicht jetzt</button></div>
+      <p class="leer" id="tr-anfrage-ergebnis"></p>`);
+  }
+  async function mitKarteFuellen(kennung, kopf) {
+    const e = eintraege.find((x) => x.id === kennung);
+    const aus = document.getElementById("tr-anfrage-ergebnis");
+    if (!tmk || !e || !anfrage || anfrage.art !== "zahlung" || !kopf || kopf.art !== "karte" || beschaeftigt) return;
+    if ((zettel.geraete || []).length && !bindung) return;
+    beschaeftigt = true;
+    for (const k of document.querySelectorAll("[data-karte-mit]")) k.disabled = true;
+    if (aus) { aus.className = "leer"; aus.textContent = "Wird eingefüllt …"; }
+    try {
+      const k = JSON.parse(td.decode(await eintragLesen(e)));
+      const d = await api(`/api/tresor/browser/${encodeURIComponent(anfrageKarte)}/zahlungskarte`, { method: "POST",
+        json: { ursprung: anfrage.ursprung, nummer: k.nummer || "", ablauf: k.ablauf || "", pruefziffer: k.pruefziffer || "",
+                inhaber: k.inhaber || "" } });
+      const ursprung = anfrage.ursprung;
+      anfrage = null; anfrageKarte = "";
+      if (aus) aus.textContent = d.ok ? `Eingefüllt auf ${ursprung}. Zurück zur HUD: Friday klickt auf Bestellen, und das wird eine Kaufkarte mit Face ID.`
+        : "Nicht eingefüllt – " + (d.blockiert || "blockiert");
+    } catch (err) {
+      if (aus) { aus.className = "leer fehler"; aus.textContent = "Nicht eingefüllt – " + err.message; }
+      for (const k of document.querySelectorAll("[data-karte-mit]")) k.disabled = false;
+    }
+    beschaeftigt = false;
+    wach();
   }
   async function mitLoginAnmelden(kennung, kopf) {
     const e = eintraege.find((x) => x.id === kennung);
@@ -855,7 +949,16 @@
       }
       const ansicht = document.getElementById("tr-ansicht");
       for (const u of ansicht.querySelectorAll("a[data-blob]")) URL.revokeObjectURL(u.href);
-      if (kopf.art === "login") {
+      if (kopf.art === "karte") {
+        const k = JSON.parse(td.decode(concat(...teile)));
+        ansicht.innerHTML = karte(`<div class="art"><span>${esc(kopf.name)}</span><button class="leise tresor-klein" data-weg="${esc(e.id)}">Löschen</button></div>
+          <div class="quelle">Zahlungskarte · Ablauf ${esc(k.ablauf || "")}</div><div class="satz">${esc(k.inhaber || "(ohne Name)")}</div>
+          <div class="wortlaut" id="tr-nr">•••• ${esc(kopf.endung || "")}</div><div class="knoepfe"><button class="leise" id="tr-nr-zeigen">Nummer zeigen</button></div>`);
+        document.getElementById("tr-nr-zeigen").addEventListener("click", () => {
+          const f = document.getElementById("tr-nr");
+          f.textContent = f.textContent.startsWith("••••") ? `${k.nummer} · ${k.pruefziffer || ""}` : `•••• ${kopf.endung || ""}`;
+        });
+      } else if (kopf.art === "login") {
         // Das Passwort steht nicht im HTML, bis du es sehen willst.
         const login = JSON.parse(td.decode(concat(...teile)));
         ansicht.innerHTML = karte(`<div class="art"><span>${esc(kopf.name)}</span><button class="leise tresor-klein" data-weg="${esc(e.id)}">Löschen</button></div>

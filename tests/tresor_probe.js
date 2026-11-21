@@ -156,6 +156,15 @@ async function main() {
     .every((x) => !intern.loginPasst(login(x), anfrage));
   b.login_nur_art_login = !intern.loginPasst({ art: "text", ursprung: "https://shop.example" }, anfrage);
 
+  // Browser Schritt 3c: Zahlungskarten nur, wenn sie stimmen (Luhn, Ablauf, Prüfziffer).
+  const k = intern.karteLesen;
+  b.karte_gueltig = JSON.stringify(k("4111 1111 1111 1111", "3/2028", "123"))
+    === JSON.stringify({ nummer: "4111111111111111", ablauf: "03/28", pruefziffer: "123" });
+  b.karte_mit_strichen = !!k("5555-5555-5555-4444", "12/30", "");
+  b.karte_luhn_falsch = k("4111 1111 1111 1112", "03/28", "123") === null;
+  b.karte_ablauf_falsch = k("4111111111111111", "13/28", "123") === null && k("4111111111111111", "0328", "") === null;
+  b.karte_pruefziffer_falsch = k("4111111111111111", "03/28", "12a") === null;
+
   // Die Parameter selbst. Alte Tresore tragen ihre Runden im Zettel und
   // gingen auch mit anderen Zahlen auf — ein stilles Herabsetzen träfe nur
   // NEUE Tresore, und genau das fiele sonst niemandem auf (Spec § 4).

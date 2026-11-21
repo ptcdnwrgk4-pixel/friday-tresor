@@ -220,7 +220,12 @@
       summe += n > 9 ? n - 9 : n;
     }
     if (summe % 10) return null;
-    const m = /^\s*(\d{1,2})\s*\/\s*(\d{2}|\d{4})\s*$/.exec(String(ablauf || ""));
+    // Die Zifferntastatur des iPhones hat keinen Schrägstrich: „0328“, „328“ und
+    // „032028“ gelten wie „03/28“ (Codex an #5).
+    let ab = String(ablauf || "").replace(/\s/g, "");
+    if (/^\d{3,4}$/.test(ab)) ab = `${ab.slice(0, -2)}/${ab.slice(-2)}`;
+    else if (/^\d{6}$/.test(ab)) ab = `${ab.slice(0, 2)}/${ab.slice(2)}`;
+    const m = /^(\d{1,2})\/(\d{2}|\d{4})$/.exec(ab);
     if (!m || Number(m[1]) < 1 || Number(m[1]) > 12) return null;
     const pz = String(pruefziffer || "");
     if (pz && !/^\d{3,4}$/.test(pz)) return null;

@@ -162,7 +162,10 @@ async function main() {
     === JSON.stringify({ nummer: "4111111111111111", ablauf: "03/28", pruefziffer: "123" });
   b.karte_mit_strichen = !!k("5555-5555-5555-4444", "12/30", "");
   b.karte_luhn_falsch = k("4111 1111 1111 1112", "03/28", "123") === null;
-  b.karte_ablauf_falsch = k("4111111111111111", "13/28", "123") === null && k("4111111111111111", "0328", "") === null;
+  b.karte_ablauf_falsch = k("4111111111111111", "13/28", "123") === null && k("4111111111111111", "1328", "") === null
+    && k("4111111111111111", "03-28", "") === null;
+  // Codex an #5: Die Zifferntastatur hat keinen Schrägstrich.
+  b.karte_ablauf_ohne_schraegstrich = ["0328", "328", "032028", "03 28"].every((x) => (k("4111111111111111", x, "") || {}).ablauf === "03/28");
   b.karte_pruefziffer_falsch = k("4111111111111111", "03/28", "12a") === null;
 
   // Die Parameter selbst. Alte Tresore tragen ihre Runden im Zettel und

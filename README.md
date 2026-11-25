@@ -89,6 +89,14 @@ gebunden, gibt er Logins nur heraus, wenn er mit Face ID geöffnet wurde. Der
 gewählte Login geht an genau diese Karte; Fridays Server füllt ihn nur in eine
 Seite dieses Ursprungs und behält ihn nicht.
 
+Seit dem 21.11.2026 auch **Zahlungskarten** (Nummer, Ablauf, Prüfziffer, Name;
+im verschlüsselten Kopf nur die letzten vier Ziffern). Will eine Kasse in
+Fridays Browser eine Karte, bietet die Seite die abgelegten Karten an — mit
+gebundenem Gerät nur nach Face ID —, und die gewählte geht an genau diese
+Karte. Der Browser füllt sie nur ein; bestellt wird erst mit einer Kaufkarte
+und Face ID in der HUD. Vor dem Ablegen prüft die Seite Nummer (Luhn), Ablauf
+und Prüfziffer (`karteLesen`).
+
 ## Der Eintritt
 
 Diese Seite hat **kein eigenes Anmeldefeld**: ein Weg, nicht zwei. Fridays

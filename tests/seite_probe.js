@@ -80,6 +80,11 @@ sage("login_nur_ueber_loginPasst", /passend\s*=\s*Object\.entries\(koepfe\)\.fil
 sage("login_nur_mit_face_id_wenn_gebunden", /geraete \|\| \[\]\)\.length && !bindung\) return;/.test(js));
 sage("login_nur_an_die_karte", /\/api\/tresor\/browser\/\$\{encodeURIComponent\(anfrageKarte\)\}\/anmelden/.test(js));
 sage("kein_passwort_im_log", !/console\.(log|info|warn|error)/.test(js));
+// Zahlungskarten (Schritt 3c): nur mit Face ID, wenn gebunden, und nur an die Karte.
+const fuellen = (js.split("async function mitKarteFuellen")[1] || "").split("\n  }\n")[0];
+sage("karte_nur_mit_face_id_wenn_gebunden", /geraete \|\| \[\]\)\.length && !bindung\) return;/.test(fuellen));
+sage("karte_nur_an_die_karte", /\/api\/tresor\/browser\/\$\{encodeURIComponent\(anfrageKarte\)\}\/zahlungskarte/.test(fuellen));
+sage("karte_wird_geprueft_vor_dem_ablegen", /const k = karteLesen\(/.test(js));
 
 // --- Die Haustür -----------------------------------------------------------
 sage("cname_gesetzt", /^[a-z0-9.-]+\.[a-z]{2,}$/.test(lies("CNAME").trim()));
